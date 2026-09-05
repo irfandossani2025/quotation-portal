@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,8 +18,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $initialValue = fn (string $key, string $default): string => filled(env($key)) ? env($key) : $default;
-
         Company::updateOrCreate(['legal_name' => 'Lustrous Glory International'], ['trading_name' => 'Mais / Hadaya Muscat',
             'logo_path' => 'images/mais-logo.png', 'accent' => '#d51f2c', 'quotation_prefix' => 'LGI', 'address' => 'Muscat, Sultanate of Oman',
             'currency' => 'OMR', 'vat_rate' => 5, 'terms' => 'Validity and delivery terms are as stated in this quotation.']);
@@ -27,13 +26,16 @@ class DatabaseSeeder extends Seeder
             'currency' => 'OMR', 'vat_rate' => 5, 'terms' => 'Validity and delivery terms are as stated in this quotation.']);
 
         foreach ([
-            ['INITIAL_ADMIN_NAME', 'INITIAL_ADMIN_EMAIL', 'INITIAL_ADMIN_PHONE', 'INITIAL_ADMIN_PASSWORD', 'System Administrator', 'admin@example.com', '+968 9000 0000', 'admin', 'Muscat'],
-            ['INITIAL_SALES_NAME', 'INITIAL_SALES_EMAIL', 'INITIAL_SALES_PHONE', 'INITIAL_SALES_PASSWORD', 'Muscat Sales', 'sales@example.com', '+968 9000 0001', 'preparer', 'Muscat'],
-            ['INITIAL_PRICING_NAME', 'INITIAL_PRICING_EMAIL', 'INITIAL_PRICING_PHONE', 'INITIAL_PRICING_PASSWORD', 'Dubai Pricing', 'pricing@example.com', '+971 50 0000', 'pricing', 'Dubai'],
-        ] as [$nameKey, $emailKey, $phoneKey, $passwordKey, $defaultName, $defaultEmail, $defaultPhone, $role, $office]) {
-            $email = $initialValue($emailKey, $defaultEmail);
-            User::updateOrCreate(['email' => $email], ['name' => $initialValue($nameKey, $defaultName), 'phone' => $initialValue($phoneKey, $defaultPhone),
-                'role' => $role, 'office' => $office, 'password' => $initialValue($passwordKey, 'ChangeMe123!')]);
+            ['admin', 'admin', 'Muscat'],
+            ['sales', 'preparer', 'Muscat'],
+            ['pricing', 'pricing', 'Dubai'],
+        ] as [$key, $role, $office]) {
+            $user = config("initial_users.$key");
+            if (blank($user['email']) || blank($user['password'])) {
+                throw new RuntimeException('Set INITIAL_'.strtoupper($key).'_EMAIL and INITIAL_'.strtoupper($key).'_PASSWORD before seeding production users.');
+            }
+            User::updateOrCreate(['email' => $user['email']], ['name' => $user['name'], 'phone' => $user['phone'],
+                'role' => $role, 'office' => $office, 'password' => $user['password']]);
         }
 
         foreach ([
