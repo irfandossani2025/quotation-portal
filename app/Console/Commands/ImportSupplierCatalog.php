@@ -7,6 +7,7 @@ use DOMDocument;
 use DOMXPath;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use SimpleXMLElement;
 use Throwable;
@@ -148,6 +149,7 @@ class ImportSupplierCatalog extends Command
         if (is_array($image)) {
             $image = is_string($image[0] ?? null) ? $image[0] : ($image[0]['url'] ?? null);
         }
+        $image = $image ? ($this->storeImage($image, $url) ?: $image) : null;
         $sku = $jsonProduct['sku'] ?? null;
         $sourceKey = $sku ?: sha1(Str::lower(rtrim($url, '/')));
         Product::updateOrCreate(['supplier' => $supplier, 'source_key' => $sourceKey], [
@@ -157,6 +159,34 @@ class ImportSupplierCatalog extends Command
         ]);
 
         return true;
+    }
+
+    private function storeImage(string $imageUrl, string $sourceUrl): ?string
+    {
+        if (! Str::startsWith($imageUrl, ['http://', 'https://'])) {
+            $imageUrl = rtrim(dirname($sourceUrl), '/').'/'.ltrim($imageUrl, '/');
+        }
+
+        try {
+            $response = Http::timeout(20)->retry(2, 400)->withHeaders([
+                'Referer' => $sourceUrl,
+                'User-Agent' => 'QuotationCatalogSync/1.0 (internal product catalog)',
+            ])->get($imageUrl);
+            if (! $response->successful() || blank($response->body())) {
+                return null;
+            }
+
+            $extension = match (strtolower((string) $response->header('Content-Type'))) {
+                'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp',
+                'image/gif' => 'gif', 'image/avif' => 'avif', default => pathinfo((string) parse_url($imageUrl, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'jpg',
+            };
+            $path = 'products/'.sha1($imageUrl).'.'.$extension;
+            Storage::disk('public')->put($path, $response->body());
+
+            return Storage::disk('public')->url($path);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function flattenJsonLd(mixed $data): array
