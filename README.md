@@ -1,4 +1,4 @@
-# Qanun Quotation Portal
+# Lustrous Glory International Quotation Portal
 
 Laravel quotation workflow for the Muscat teams of Lustrous Glory International (Mais / Hadaya Muscat) and Mugdi Investments LLC (Mudgi brand asset), with a touch-first Dubai pricing desk.
 
