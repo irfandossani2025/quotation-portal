@@ -14,7 +14,7 @@
     <nav>
         @if(auth()->user()->role !== 'pricing')<a href="{{ route('dashboard') }}">Overview</a><a href="{{ route('quotations.index') }}">Quotations</a>@endif
         @if(in_array(auth()->user()->role, ['pricing','admin']))<a href="{{ route('pricing.index') }}">Price desk</a>@endif
-        @if(auth()->user()->role === 'admin')<a href="{{ route('users.index') }}">Users</a>@endif
+        @if(auth()->user()->role === 'admin')<a href="{{ route('products.index') }}">Products</a><a href="{{ route('users.index') }}">Users</a>@endif
     </nav>
     <div class="profile"><span>{{ auth()->user()->name }}<small>{{ auth()->user()->office }}</small></span>
         <form method="post" action="{{ route('logout') }}">@csrf<button class="icon-btn" aria-label="Sign out">↗</button></form></div>
