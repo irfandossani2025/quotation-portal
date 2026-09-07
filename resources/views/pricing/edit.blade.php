@@ -1,6 +1,6 @@
 @extends('layout')
 @section('content')
-<div class="page-head"><div><a class="muted" href="{{ route('pricing.index') }}">← All requests</a><div class="eyebrow" style="margin-top:14px">{{ $quotation->company->trading_name }}</div><h1>{{ $quotation->number }}</h1><p>{{ $quotation->customer_name }} · {{ $quotation->items->count() }} products</p></div></div>
+<div class="page-head"><div><a class="muted" href="{{ route('pricing.index') }}">← All requests</a><div class="eyebrow" style="margin-top:14px">Pricing request · {{ $quotation->company->trading_name }}</div><h1>{{ $quotation->number }}</h1><p>{{ $quotation->customer_name }}{{ $quotation->customer_company ? ' · '.$quotation->customer_company : '' }} · {{ $quotation->items->count() }} products</p></div><div class="pricing-request-company"><span class="company-dot" style="background:{{ $quotation->company->accent }}"></span><strong>{{ $quotation->company->trading_name }}</strong><small>{{ $quotation->company->legal_name }}</small></div></div>
 <form method="post" action="{{ route('pricing.update',$quotation) }}">@csrf @method('PUT')
 @foreach($quotation->items as $item)<article class="price-item">
     @if($item->photo_url)<img src="{{ $item->photo_url }}" alt="">@else<span class="photo-placeholder">◇</span>@endif

@@ -28,6 +28,10 @@ class QuotationWorkflowTest extends TestCase
         $quotation = Quotation::firstOrFail();
         $this->assertSame('pricing', $quotation->status);
         $item = $quotation->items()->firstOrFail();
+        $this->actingAs($pricing)->get(route('pricing.index'))
+            ->assertOk()
+            ->assertSee('Test')
+            ->assertSee(route('pricing.edit', $quotation));
         $this->actingAs($pricing)->put(route('pricing.update', $quotation), ['prices' => [$item->id => 2.125]])->assertRedirect(route('pricing.index'));
 
         $quotation->refresh();
