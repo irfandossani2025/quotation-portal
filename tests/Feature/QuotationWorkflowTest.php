@@ -40,4 +40,13 @@ class QuotationWorkflowTest extends TestCase
         $this->assertSame('1.063', $quotation->vat_amount);
         $this->assertSame('22.313', $quotation->total);
     }
+
+    public function test_pricing_user_is_sent_to_pricing_after_login(): void
+    {
+        $pricing = User::factory()->create(['role' => 'pricing', 'office' => 'Dubai', 'password' => 'password']);
+
+        $this->from(route('dashboard'))->post(route('login'), [
+            'email' => $pricing->email, 'password' => 'password',
+        ])->assertRedirect(route('pricing.index'));
+    }
 }

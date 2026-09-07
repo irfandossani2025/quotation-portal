@@ -20,7 +20,11 @@ class AuthController extends Controller
         }
         $request->session()->regenerate();
 
-        return redirect()->intended(Auth::user()->role === 'pricing' ? route('pricing.index') : route('dashboard'));
+        if (Auth::user()->role === 'pricing') {
+            return redirect()->route('pricing.index');
+        }
+
+        return redirect()->intended(route('dashboard'));
     }
 
     public function logout(Request $request)
