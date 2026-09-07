@@ -7,6 +7,8 @@ use App\Models\Product;
 use App\Models\Quotation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class QuotationWorkflowTest extends TestCase
@@ -48,5 +50,24 @@ class QuotationWorkflowTest extends TestCase
         $this->from(route('dashboard'))->post(route('login'), [
             'email' => $pricing->email, 'password' => 'password',
         ])->assertRedirect(route('pricing.index'));
+    }
+
+    public function test_preparer_can_add_a_product_while_creating_a_quotation(): void
+    {
+        Storage::fake('public');
+        $company = Company::create(['legal_name' => 'Test Co', 'trading_name' => 'Test', 'logo_path' => 'images/mais-logo.png', 'accent' => '#111111', 'quotation_prefix' => 'TQ', 'currency' => 'OMR', 'vat_rate' => 5]);
+        $sales = User::factory()->create(['role' => 'preparer', 'office' => 'Muscat']);
+
+        $this->actingAs($sales)->post(route('quotations.store'), [
+            'company_id' => $company->id, 'customer_name' => 'Acme', 'valid_until' => now()->addMonth()->toDateString(),
+            'custom_product_name' => [0 => 'Custom travel mug'], 'custom_supplier' => [0 => 'Local Supplier'],
+            'custom_quantity' => [0 => 12], 'custom_image' => [0 => UploadedFile::fake()->image('mug.jpg')],
+        ])->assertRedirect();
+
+        $quotation = Quotation::firstOrFail();
+        $product = Product::where('name', 'Custom travel mug')->firstOrFail();
+        $this->assertSame('Custom travel mug', $quotation->items()->firstOrFail()->description);
+        $this->assertNotNull($product->image_url);
+        Storage::disk('public')->assertExists(str_replace('/storage/', '', parse_url($product->image_url, PHP_URL_PATH)));
     }
 }

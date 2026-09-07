@@ -8,6 +8,8 @@ use App\Models\Quotation;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PortalController extends Controller
 {
@@ -52,10 +54,17 @@ class PortalController extends Controller
             'company_id' => ['required', 'exists:companies,id'], 'customer_name' => ['required', 'max:255'],
             'customer_company' => ['nullable', 'max:255'], 'customer_email' => ['nullable', 'email'],
             'customer_phone' => ['nullable', 'max:50'], 'customer_address' => ['nullable'], 'subject' => ['nullable', 'max:255'],
-            'valid_until' => ['required', 'date'], 'notes' => ['nullable'], 'product_id' => ['required', 'array', 'min:1'],
-            'quantity' => ['required', 'array'],
-            'product_id.*' => ['required', 'exists:products,id'], 'quantity.*' => ['required', 'numeric', 'gt:0'],
+            'valid_until' => ['required', 'date'], 'notes' => ['nullable'], 'product_id' => ['nullable', 'array'],
+            'quantity' => ['nullable', 'array'], 'product_id.*' => ['required', 'exists:products,id'],
+            'quantity.*' => ['required', 'numeric', 'gt:0'], 'custom_product_name' => ['nullable', 'array'],
+            'custom_product_name.*' => ['nullable', 'max:255'], 'custom_supplier' => ['nullable', 'array'],
+            'custom_supplier.*' => ['nullable', 'max:255'], 'custom_quantity' => ['nullable', 'array'],
+            'custom_quantity.*' => ['nullable', 'numeric', 'gt:0'], 'custom_image' => ['nullable', 'array'],
+            'custom_image.*' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
+        $catalogIds = array_filter($data['product_id'] ?? []);
+        $customNames = array_filter($data['custom_product_name'] ?? [], fn ($name) => filled($name));
+        abort_if(count($catalogIds) + count($customNames) < 1, 422, 'Select a catalog product or add a product manually.');
         $quotation = DB::transaction(function () use ($data) {
             $company = Company::lockForUpdate()->findOrFail($data['company_id']);
             $year = now()->year;
@@ -71,10 +80,23 @@ class PortalController extends Controller
                 'quotation_date' => today(), 'valid_until' => $data['valid_until'], 'status' => 'pricing',
                 'vat_rate' => $company->vat_rate, 'notes' => $data['notes'] ?? null,
             ]);
-            foreach ($data['product_id'] as $index => $productId) {
+            foreach ($data['product_id'] ?? [] as $index => $productId) {
                 $product = Product::findOrFail($productId);
                 $quotation->items()->create(['product_id' => $product->id, 'sort_order' => $index + 1,
                     'description' => $product->name, 'photo_url' => $product->image_url, 'quantity' => $data['quantity'][$productId]]);
+            }
+            foreach ($data['custom_product_name'] ?? [] as $index => $name) {
+                if (blank($name)) {
+                    continue;
+                }
+                $imageUrl = null;
+                if (isset($data['custom_image'][$index])) {
+                    $imageUrl = Storage::disk('public')->url($data['custom_image'][$index]->store('products', 'public'));
+                }
+                $product = Product::create(['supplier' => $data['custom_supplier'][$index] ?? 'Manual', 'source_key' => 'manual-'.Str::uuid(),
+                    'source_url' => 'https://manual.local/', 'name' => $name, 'image_url' => $imageUrl, 'active' => true]);
+                $quotation->items()->create(['product_id' => $product->id, 'sort_order' => count($data['product_id'] ?? []) + $index + 1,
+                    'description' => $product->name, 'photo_url' => $imageUrl, 'quantity' => $data['custom_quantity'][$index] ?? 1]);
             }
 
             return $quotation;
